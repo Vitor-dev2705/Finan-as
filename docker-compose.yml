@@ -1,0 +1,9 @@
+services:
+  financas-bot:
+    build: .
+    container_name: financas-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TZ=America/Sao_Paulo
