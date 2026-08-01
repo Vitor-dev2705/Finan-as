@@ -12,17 +12,20 @@ import org.telegram.telegrambots.meta.api.objects.Voice;
 
 import com.financasbot.config.EnvConfig;
 import com.financasbot.model.Transaction;
+import com.financasbot.model.User;
 import com.financasbot.service.FinanceService;
 import com.financasbot.service.GroqService;
+import com.financasbot.service.UserService;
 
 public class TelegramVoiceBot extends TelegramLongPollingBot {
 
     private final GroqService groqService = new GroqService();
     private final FinanceService financeService = new FinanceService();
+    private final UserService userService = new UserService();
 
     @Override
     public String getBotUsername() {
-        return "SeuBotUsername"; // ajuste para o username do seu bot se necessário
+        return "financasbot";
     }
 
     @Override
@@ -34,28 +37,35 @@ public class TelegramVoiceBot extends TelegramLongPollingBot {
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasVoice()) {
             String chatId = update.getMessage().getChatId().toString();
-            Voice voice = update.getMessage().getVoice();
+            String firstName = update.getMessage().getFrom().getFirstName();
 
             try {
-                // Envia aviso ao usuário de que está processando
-                sendTextMessage(chatId, "🎧 Processando áudio via Groq (Whisper + Llama 3.3)...");
+                // 1. Extrai o objeto Voice da mensagem
+                Voice voice = update.getMessage().getVoice();
 
-                // Baixa o arquivo de áudio
+                // Envia aviso ao usuário de que está processando
+                sendTextMessage(chatId, "Processando seu áudio...");
+
+                // 2. Baixa o arquivo de áudio do servidor do Telegram
                 GetFile getFile = new GetFile();
                 getFile.setFileId(voice.getFileId());
                 File file = execute(getFile);
-                
+
                 byte[] audioBytes;
                 try (InputStream is = downloadFileAsStream(file)) {
                     audioBytes = is.readAllBytes();
                 }
 
-                // Processa o áudio na Groq
+                // 3. Garante/Cria o perfil do usuário no banco
+                User user = userService.getOrCreateUser(chatId, firstName);
+
+                // 4. Processa o áudio via Groq
                 GroqService.AudioParsedResult result = groqService.processAudio(audioBytes);
 
                 if (result != null && result.amount() != null) {
                     Transaction transaction = new Transaction();
-                    transaction.setUserId(chatId);
+                    // Associa o ID do perfil à transação
+                    transaction.setUserId(user.getId());
                     transaction.setAmount(result.amount());
                     transaction.setCategory(result.category());
                     transaction.setDate(LocalDate.now());
@@ -63,19 +73,19 @@ public class TelegramVoiceBot extends TelegramLongPollingBot {
                     boolean saved = financeService.saveTransaction(transaction);
 
                     if (saved) {
-                        String msg = String.format("✅ Gastos registrados!\n💰 **Valor:** R$ %.2f\n🏷️ **Categoria:** %s", 
-                                result.amount(), result.category());
+                        String msg = String.format(" Gasto registrado %s!\n **Valor:** R$ %.2f\n **Categoria:** %s",
+                                user.getName(), result.amount(), result.category());
                         sendTextMessage(chatId, msg);
                     } else {
-                        sendTextMessage(chatId, "⚠️ Erro ao salvar transação no banco de dados.");
+                        sendTextMessage(chatId, " Erro ao salvar transação no banco de dados.");
                     }
                 } else {
-                    sendTextMessage(chatId, "❌ Não consegui entender a quantia ou a categoria no áudio.");
+                    sendTextMessage(chatId, " Não consegui entender a quantia ou a categoria no áudio.");
                 }
 
             } catch (Exception e) {
                 System.err.println("[Bot Error]: " + e.getMessage());
-                sendTextMessage(chatId, "❌ Erro ao processar o áudio.");
+                sendTextMessage(chatId, " Erro ao processar o áudio.");
             }
         }
     }
