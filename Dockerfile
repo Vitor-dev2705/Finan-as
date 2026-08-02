@@ -1,37 +1,19 @@
-# ============================================
-# STAGE 1: Build com Maven
-# ============================================
+# Estágio de Build
 FROM maven:3.9-eclipse-temurin-17 AS build
-
 WORKDIR /app
 
-# Copia apenas o pom.xml primeiro para cachear as dependências
+# 1. Copia apenas o pom.xml para baixar as dependências e criar CACHE
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
-# Copia o código-fonte e compila
+# 2. Copia o código-fonte e faz a compilação do JAR
 COPY src ./src
-RUN mvn clean package -DskipTests -q
+RUN mvn package -DskipTests --batch-mode
 
-# ============================================
-# STAGE 2: Runtime com JRE leve
-# ============================================
+# Estágio de Execução (Imagem leve)
 FROM eclipse-temurin:17-jre-alpine
-
 WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
 
-# Copia o fat JAR gerado pelo Maven Shade Plugin
-COPY --from=build /app/target/financas-voz-bot-1.0-SNAPSHOT.jar app.jar
-
-# Variáveis de ambiente (definidas no docker-compose ou via -e)
-ENV DB_URL="" \
-    DB_USER="" \
-    DB_PASS="" \
-    TELEGRAM_BOT_TOKEN="" \
-    GROQ_API_KEY="" \
-    SPRING_AI_OPENAI_BASE_URL="https://api.groq.com/openai" \
-    SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL="llama-3.3-70b-versatile" \
-    SPRING_AI_OPENAI_AUDIO_TRANSCRIPTION_OPTIONS_MODEL="whisper-large-v3"
-
-# Executa o bot
-CMD ["java", "-jar", "app.jar"]
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
