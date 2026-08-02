@@ -62,30 +62,31 @@ public class TelegramVoiceBot extends TelegramLongPollingBot {
                 // 4. Processa o áudio via Groq
                 GroqService.AudioParsedResult result = groqService.processAudio(audioBytes);
 
-                if (result != null && result.amount() != null) {
+                // VALIDAÇÃO AJUSTADA: Garante que o result não é nulo e o valor é MAIOR QUE ZERO
+                if (result != null && result.amount() != null && result.amount() > 0) {
                     Transaction transaction = new Transaction();
                     // Associa o ID do perfil à transação
                     transaction.setUserId(user.getId());
                     transaction.setAmount(result.amount());
-                    transaction.setCategory(result.category());
+                    transaction.setCategory(result.category() != null ? result.category() : "Outros");
                     transaction.setDate(LocalDate.now());
 
                     boolean saved = financeService.saveTransaction(transaction);
-
                     if (saved) {
-                        String msg = String.format(" Gasto registrado %s!\n **Valor:** R$ %.2f\n **Categoria:** %s",
-                                user.getName(), result.amount(), result.category());
+                        String msg = String.format("Gasto registrado %s!\n **Valor:** R$ %.2f\n **Categoria:** %s",
+                                user.getName(), result.amount(), transaction.getCategory());
                         sendTextMessage(chatId, msg);
                     } else {
-                        sendTextMessage(chatId, " Erro ao salvar transação no banco de dados.");
+                        sendTextMessage(chatId, "Erro ao salvar transação no banco de dados.");
                     }
                 } else {
-                    sendTextMessage(chatId, " Não consegui entender a quantia ou a categoria no áudio.");
+                    // Fallback ativado quando a IA não encontra um valor válido
+                    sendTextMessage(chatId, "Não consegui entender o valor do gasto no áudio.\n\nPor favor, envie um novo áudio informando o valor claramente (ex: *Gastei 15 reais na padaria*).");
                 }
 
             } catch (Exception e) {
                 System.err.println("[Bot Error]: " + e.getMessage());
-                sendTextMessage(chatId, " Erro ao processar o áudio.");
+                sendTextMessage(chatId, "Erro ao processar o áudio.");
             }
         }
     }
