@@ -29,14 +29,14 @@
             <version>3.0.0</version>
         </dependency>
 
-        <!-- Telegram Bot API Completa (Versão Estável Oficial Java SE) -->
+        <!-- Telegram Bot API Completa -->
         <dependency>
             <groupId>org.telegram</groupId>
             <artifactId>telegrambots</artifactId>
             <version>6.9.7.1</version>
         </dependency>
 
-        <!-- Jackson para ler e converter os JSONs da API da Groq/Gemini -->
+        <!-- Jackson para ler e converter os JSONs -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -45,8 +45,11 @@
     </dependencies>
 
     <build>
+        <!-- Força o nome do arquivo final a ser sempre "app.jar" sem sufixos -->
+        <finalName>app</finalName>
+
         <plugins>
-            <!-- Plugin para executar a classe principal via Maven (dev local) -->
+            <!-- Plugin para executar via Maven em ambiente dev -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
@@ -56,7 +59,7 @@
                 </configuration>
             </plugin>
 
-            <!-- Plugin para gerar Fat JAR (todas as dependências dentro do JAR) -->
+            <!-- Plugin para gerar o Fat JAR (uber-jar) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
